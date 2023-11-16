@@ -2,7 +2,7 @@
 
 ## Task 1 ##
 # Task 1.1 #
-homeprices <- read.csv("D:\\FH\\Semester5\\DAT\\Exercise_2\\homeprices.csv", header = TRUE, sep = ";")
+homeprices <- read.csv("Exercise_2\\homeprices.csv", header = TRUE, sep = ";", dec = ".")
 head(homeprices)
 dim(homeprices)
 class(homeprices)
@@ -206,3 +206,88 @@ summary(new_models_bw)
 
 ## Task 3 ##
 # Task 3.1 #
+diesel_prop <- read.table("Exercise_2\\diesel_prop.csv", header = TRUE, skip = 8, sep = ",", na.strings = "NaN")
+diesel_spec <- read.table("Exercise_2\\diesel_spec.csv", header = TRUE, skip = 9, sep = ",", na.strings = "NaN")
+
+head(diesel_prop)
+head(diesel_spec)
+
+# Task 3.2 #
+# data cleaning
+diesel_prop <- diesel_prop[,  -which(names(diesel_prop) %in% c("Label","X", "X.1"))]
+dim(diesel_prop)
+colnames(diesel_prop)
+
+diesel_spec <- diesel_spec[,  -which(names(diesel_spec) %in% c("Axisscale","X", "X.1"))]
+dim(diesel_spec)
+
+# Task 3.3 #
+diesel_pred <- data.frame(diesel_prop$FREEZE, diesel_spec)
+diesel_pred <- na.omit(diesel_pred)
+head(diesel_pred)
+dim(diesel_pred)
+colnames(diesel_pred)
+
+# Task 3.4 #
+# plot variables
+plot(diesel_pred$X750, diesel_pred$diesel_prop.FREEZE,
+    xlab = "X Numbers", ylab = "FREEZE",
+    main = "FREEZE vs. X's",
+    xlim = c(0, 1),
+    pch = 19,
+    col = "black")
+
+points(diesel_pred$X814, diesel_pred$diesel_prop.FREEZE, col = "red")
+points(diesel_pred$X916, diesel_pred$diesel_prop.FREEZE, col = "blue")
+points(diesel_pred$X1038, diesel_pred$diesel_prop.FREEZE, col = "green")
+points(diesel_pred$X1550, diesel_pred$diesel_prop.FREEZE, col = "purple")
+
+# Task 3.5 #
+# split the data into a training and test set
+set.seed(555)
+n <- nrow(diesel_pred)
+training_rows <- sort(sample(x = 1:n, size = floor(0.75 * n)))
+test_rows <- (1:n)[!((1:n) %in% training_rows)]
+
+# training and test data
+df_dieseltrain <- diesel_pred[training_rows, ]
+df_dieseltest <- diesel_pred[test_rows, ]
+
+# Task 3.6 #
+# pcr model
+library(pls)
+pcr_model <- pcr(df_dieseltrain$diesel_prop.FREEZE ~ ., data = df_dieseltrain, ncomp = 25, validation = "CV")
+
+summary(pcr_model)
+# We choose the Model with 14 components
+
+df_dieselpreds_test <- predict(pcr_model, newdata = df_dieseltest, ncomp = 14)
+(rmse_pcr <- sqrt(mean((df_dieseltest$diesel_prop.FREEZE - df_dieselpreds_test)^2)))
+
+# pls model
+pls_model <- plsr(df_dieseltrain$diesel_prop.FREEZE ~ ., data = df_dieseltrain, ncomp = 25, validation = "CV")
+
+summary(pls_model)
+# We choose the Model with 10 components
+
+df_dieselpreds_test <- predict(pls_model, newdata = df_dieseltest, ncomp = 10)
+(rmse_pls <- sqrt(mean((df_dieseltest$diesel_prop.FREEZE - df_dieselpreds_test)^2)))
+
+# QUESTION:
+## Which model performs better?
+cat("The RMSE of the PCR model is ", rmse_pcr, ".\n")
+cat("The RMSE of the PLS model is ", rmse_pls, ".\n")
+#### The PLS model performs better, because the RMSE is lower than the RMSE of the PCR model and it has lower amount of components.
+
+plot(df_dieselpreds_test, df_dieseltest$diesel_prop.FREEZE,
+    xlab = "Measured FREEZE", ylab = "Predicted FREEZE",
+    main = "Measured vs. Predicted FREEZE",
+    pch = 19,
+    col = "black")
+
+points(df_dieseltest$diesel_prop.FREEZE, df_dieseltest$diesel_prop.FREEZE, col = "red")
+
+# predplot did not work:
+# predplot(pls_model, ncomp = 10, which = "test", newdata = df_dieseltest, pch = 19)
+# Error in model.frame.default(formula(object), data = newdata) : 
+#   variable lengths differ (found for 'X750')
