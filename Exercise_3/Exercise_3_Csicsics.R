@@ -43,10 +43,10 @@ table(test$type)
 library(rpart)
 
 set.seed(55)
-wines_tree <- rpart(type ~ . - quality, data = train, method = "class", control = rpart.control(minsplit = 2, cp = 0.005, minbucket = 1))
+wines_tree <- rpart(type ~ . - quality, data = train, method = "class", control = rpart.control(minsplit = 2, cp = 0.0001, minbucket = 1))
 # cp = complexity parameter, the smaller the more complex the tree,
-# that's why I set it to 0.01, because 0.001 would be too complex
-# and we would have a tree with a lot of nodes
+# that's why I set it to 0.0001, because else I would get the same model
+# in the next task
 
 # cptable of the model
 wines_tree$cptable
@@ -63,17 +63,17 @@ table(wines_tree_pred, test$type)
 
 # accuracy and missclassification of the model
 wines_tree_accuracy <- sum(diag(table(wines_tree_pred, test$type))) / nrow(test)
-cat("Accuracy of the model: ", wines_tree_accuracy, "\n")
+cat("Accuracy of the model: ", round(wines_tree_accuracy*100, 4), "%\n")
 wines_tree_mclsfcn <- 1 - sum(diag(table(wines_tree_pred, test$type))) / nrow(test)
-cat("Missclassification of the model: ", wines_tree_mclsfcn, "\n")
+cat("Missclassification of the model: ", round(wines_tree_mclsfcn*100, 4), "%\n")
 
 # accuracy of white wines
 wines_white_accuracy <- sum(diag(table(wines_tree_pred, test$type))[1]) / sum(table(wines_tree_pred, test$type)[1, ])
-cat("Accuracy of white wines predictions: ", wines_white_accuracy, "\n")
+cat("Accuracy of white wines predictions: ", round(wines_white_accuracy*100, 4), "%\n")
 
 # accuracy of red wines
 wines_red_accuracy <- sum(diag(table(wines_tree_pred, test$type))[2]) / sum(table(wines_tree_pred, test$type)[2, ])
-cat("Accuracy of red wines predictions: ", wines_red_accuracy, "\n")
+cat("Accuracy of red wines predictions: ", round(wines_red_accuracy*100, 4), "%\n")
 
 # Q: Which type of wine is better classified?
 # A: Red wines are better classified, because the accuracy of red wines is higher than the accuracy of white wines.
@@ -107,8 +107,9 @@ barplot(wines_tree_all$variable.importance, main = "Variable Importance",
 # Dens. = Density; Sulph. = Sulphates; Sugar = Residual sugar; Alc = Alcohol
 
 # Q: Are all 11 variables needed for the classification?
-# A: No, only 4 variables are actually used in the model, but all variables
+# A: No, only 9 variables are actually used in the model, but all variables
 #    have an importance. (some very high and some barely any)
+#    These variables are: TSO2, Cl, Sulph., V.acid, F.acid, Dens., Alc., Sugar, Ph
 
 ###############################################################################
 ## Task 2
@@ -128,6 +129,7 @@ if (length(opt_cp_1se) > 1) {
   opt_cp_1se <- max(opt_cp_1se)
 }
 
+(opt_cp_1se)
 # create the tree with the opt_cp_1se
 set.seed(55)
 wines_tree_1se <- rpart(type ~ . - quality, data = rbind(train, test), method = "class",
@@ -138,14 +140,121 @@ fancyRpartPlot(wines_tree_1se, sub = "")
 
 # accuracy of the model
 wines_tree_1se_accuracy <- sum(diag(table(predict(wines_tree_1se, test, type = "class"), test$type))) / nrow(test)
-cat("Accuracy of the se_model: ", wines_tree_1se_accuracy, "\n")
-cat("Accuracy of the model with all data: ", wines_tree_accuracy, "\n")
+cat("Accuracy of the se_model: ", round(wines_tree_1se_accuracy*100, 4), "%\n")
+cat("Accuracy of the model with all data: ", round(wines_tree_accuracy*100, 4), "%\n")
 
 # Q: Did you obtain a (much) simpler model?
-# A: No, only 1 node less (Density)
+# A: Yes, the model got much simpler, because the cp is much higher
+#    than the cp of the model with all data.
 
 ###############################################################################
 ## Task 3
 ###############################################################################
 
 ### Task 3.1
+
+# check if type is a factor
+is.factor(wines$type)
+
+# random forest with all variables except quality
+# install.packages("randomForest")
+library(randomForest)
+
+set.seed(55)
+wines_forest <- randomForest(type ~ . - quality, data = train, ntree = 555, importance = TRUE)
+
+# plot the error rate versus the number of trees and save the plot
+plot(wines_forest, main = "Error rate vs. number of trees")
+
+# looking at the plot we can say, that around 200 trees would be enough
+
+### Task 3.2
+# out-of-bag error rate and the confusion matrix
+wines_forest
+
+# error rate would be around 0.0169 (1.69%)
+# there are 22 missclassifications
+
+### Task 3.3
+# prediction on test data
+set.seed(55)
+wines_forest_pred <- predict(wines_forest, test, type = "class")
+
+# confusion matrix
+table(wines_forest_pred, test$type)
+
+# accuracy and missclassification of the model
+wines_forest_accuracy <- sum(diag(table(wines_forest_pred, test$type))) / nrow(test)
+cat("Accuracy of the model: ", round(wines_forest_accuracy*100, 4), "%\n")
+wines_forest_mclsfcn <- 1 - sum(diag(table(wines_forest_pred, test$type))) / nrow(test)
+cat("Missclassification of the model: ", round(wines_forest_mclsfcn*100, 4), "%\n")
+
+# Q: Did it perform better than the classification tree?
+# A: Yes, the accuracy of the random forest is higher than
+#    the accuracy of the classification tree.
+
+# Q: How many missclassifications did you obtain?
+# A: 13 missclassifications
+
+### Task 3.4
+# get the missclassified wines
+misclass_wines <- test[which(wines_forest_pred != test$type), ]
+
+# print the first 2
+head(misclass_wines, 2)
+
+set.seed(55)
+misclass_wines_pred <- predict(wines_forest, misclass_wines, type = "prob")
+
+misclass_wines_pred
+
+# Q: Interpret the results.
+# A: As the result we get a matrix with the probability
+#    of the wine being red or white. At the first row
+#    we can see that the wine is around 49% red and 51% white.
+
+### Task 3.5
+help(randomForest)
+
+mtry_vec <- c(2, 5, 8)
+
+nodesize_vec <- c(2, 4, 6)
+
+# random forest for each combination of mtry and nodesize
+for (mtry in mtry_vec) {
+  for (nodesize in nodesize_vec) {
+    set.seed(55)
+    wines_forest <- randomForest(type ~ . - quality, data = train, ntree = 555, importance = TRUE, mtry = mtry, nodesize = nodesize)
+    wines_forest_pred <- predict(wines_forest, test, type = "class")
+    print(table(wines_forest_pred, test$type))
+    cat("mtry: ", mtry, " nodesize: ", nodesize, "\n")
+  }
+}
+
+# Q: Which combination of mtry and nodesize performs best?
+# A: The combination of mtry = 5 and nodesize = 4 performs best
+
+### Task 3.6
+
+# print only the MeanDecreaseGini of the variable importance
+(forest_importance <- wines_forest$importance[order(wines_forest$importance[, 4], decreasing = TRUE), 4])
+
+# plot the variable importance in a barplot
+barplot(forest_importance, main = "Variable Importance",
+        xlab = "Importance", ylab = "Variable", horiz = FALSE,
+        names.arg = c("TSO2", "Cl", "V.acid", "Dens.",
+                      "Sulph.", "F.acid", "Sugar",
+                      "pH", "Alc.", "C.acid", "FSO2"))
+
+# Q: Which variables are most important?
+# A: The most important variables are: TSO2, Cl
+
+# Q: Are these variables also important in the classification tree?
+# A: Yes and No, some of them are important in the classification tree
+
+###############################################################################
+## Task 4
+###############################################################################
+
+### Task 4.1
+
