@@ -275,14 +275,14 @@ colnames(train_white)
 require(caret)
 
 set.seed(55)
-tc <- trainControl(method = "repeatedcv", number = 5, repeats = 5)
+tc <- trainControl(method = "repeatedcv", number = 10, repeats = 3)
 
 # create a tuning grid
-tG <- expand.grid(.cp = seq(0.00001, 0.01, length = 15))
+rt_tG <- expand.grid(.cp = seq(0.00001, 0.01, length = 15))
 
 # train the model
 set.seed(55)
-(wines_tree_reg <- train(quality ~ ., data = train_white, method = "rpart", trControl = tc, tuneGrid = tG))
+(wines_tree_reg <- train(quality ~ ., data = train_white, method = "rpart", trControl = tc, tuneGrid = rt_tG))
 
 # prediction on test data
 set.seed(55)
@@ -295,7 +295,8 @@ cat("RMSE of the model on test data: ", rt_rmse_test, "\n")
 ### Task 4.3
 # random forest
 set.seed(55)
-(wines_forest_reg <- train(quality ~ ., data = train_white, method = "rf"))
+forest_tG <- expand.grid(.mtry = sqrt(ncol(train_white)))
+(wines_forest_reg <- train(quality ~ ., data = train_white, method = "rf", trControl = tc, tuneGrid = forest_tG))
 
 set.seed(55)
 wines_forest_reg_pred <- predict(wines_forest_reg, test_white)
@@ -340,11 +341,56 @@ cat("RMSE of the model on test data: ", lasso_rmse_test, "\n")
 
 # Q: Which model performs best?
 # A: The best mode is:
-switch(which.min(c(rt_rmse_test, rf_rmse_test, lm_rmse_test, pcr_rmse_test, pls_rmse_test, lasso_rmse_test)),
+cat("The model that performed the best is the", switch(which.min(c(rt_rmse_test, rf_rmse_test, lm_rmse_test, pcr_rmse_test, pls_rmse_test, lasso_rmse_test)),
        "rt" = "Regression Tree",
        "rf" = "Random Forest",
        "lm" = "Linear Regression",
        "pcr" = "PCR",
        "pls" = "PLS",
-       "lasso" = "Lasso")
+       "lasso" = "Lasso")[1], "\n")
 
+### Task 4.5
+# Calculate a classification tree model
+
+# set the quality to a factor
+train_white$quality <- as.factor(train_white$quality)
+
+set.seed(55)
+(wines_tree_class <- train(quality ~ ., data = train_white, method = "rpart", trControl = tc, tuneGrid = rt_tG))
+
+set.seed(55)
+wines_tree_class_pred <- predict(wines_tree_class, test_white)
+
+# classification random forest
+set.seed(55)
+(wines_forest_class <- train(quality ~ ., data = train_white, method = "rf", trControl = tc, tuneGrid = forest_tG))
+
+set.seed(55)
+wines_forest_class_pred <- predict(wines_forest_class, test_white)
+
+#  transform both the predictions and the true values of the testset to numeric values and calculate the rmse
+wines_tree_class_pred <- as.numeric(wines_tree_class_pred)
+wines_forest_class_pred <- as.numeric(wines_forest_class_pred)
+
+test_white$quality <- as.numeric(test_white$quality)
+
+# rmse of the model
+class_tree_rmse_test <- sqrt(mean((wines_tree_class_pred - test_white$quality)^2))
+cat("RMSE of the classification tree: ", class_tree_rmse_test, "\n")
+
+class_forest_rmse_test <- sqrt(mean((wines_forest_class_pred - test_white$quality)^2))
+cat("RMSE of the classification forest: ", class_forest_rmse_test, "\n")
+
+# wines_tree_reg and wines_forest_reg
+# wines_tree_reg_pred and wines_forest_reg_pred
+
+# round the predictions of the regression models to the nearest integer and calculate the rmse
+wines_tree_reg_pred <- round(wines_tree_reg_pred)
+wines_forest_reg_pred <- round(wines_forest_reg_pred)
+
+# rmse of the model
+reg_tree_rmse_test <- sqrt(mean((wines_tree_reg_pred - test_white$quality)^2))
+cat("RMSE of the regression tree: ", reg_tree_rmse_test, "\n")
+
+reg_forest_rmse_test <- sqrt(mean((wines_forest_reg_pred - test_white$quality)^2))
+cat("RMSE of the regression forest: ", reg_forest_rmse_test, "\n")
