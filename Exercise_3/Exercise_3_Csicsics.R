@@ -257,4 +257,94 @@ barplot(forest_importance, main = "Variable Importance",
 ###############################################################################
 
 ### Task 4.1
+# split the white wines into training and test data with approximately same ratio of qualities
+set.seed(55)
+train_white <- white_wines[sample(nrow(white_wines), 0.75 * nrow(white_wines)), ]
+test_white <- white_wines[!(rownames(white_wines) %in% rownames(train_white)), ]
+
+table(train_white$quality)
+table(test_white$quality)
+
+train_white$quality <- as.numeric(train_white$quality)
+
+colnames(train_white)
+
+### Task 4.2
+# regression tree
+# install.packages("caret")
+require(caret)
+
+set.seed(55)
+tc <- trainControl(method = "repeatedcv", number = 5, repeats = 5)
+
+# create a tuning grid
+tG <- expand.grid(.cp = seq(0.00001, 0.01, length = 15))
+
+# train the model
+set.seed(55)
+(wines_tree_reg <- train(quality ~ ., data = train_white, method = "rpart", trControl = tc, tuneGrid = tG))
+
+# prediction on test data
+set.seed(55)
+wines_tree_reg_pred <- predict(wines_tree_reg, test_white)
+
+# rmse of the model
+rt_rmse_test <- sqrt(mean((wines_tree_reg_pred - test_white$quality)^2))
+cat("RMSE of the model on test data: ", rt_rmse_test, "\n")
+
+### Task 4.3
+# random forest
+set.seed(55)
+(wines_forest_reg <- train(quality ~ ., data = train_white, method = "rf"))
+
+set.seed(55)
+wines_forest_reg_pred <- predict(wines_forest_reg, test_white)
+rf_rmse_test <- sqrt(mean((wines_forest_reg_pred - test_white$quality)^2))
+cat("RMSE of the model on test data: ", rf_rmse_test, "\n")
+
+# linear regression lm
+set.seed(55)
+(wines_lm_reg <- train(quality ~ ., data = train_white, method = "lm", trControl = tc))
+
+set.seed(55)
+wines_lm_reg_pred <- predict(wines_lm_reg, test_white)
+lm_rmse_test <- sqrt(mean((wines_lm_reg_pred - test_white$quality)^2))
+cat("RMSE of the model on test data: ", lm_rmse_test, "\n")
+
+# pcr
+set.seed(55)
+(wines_pcr_reg <- train(quality ~ ., data = train_white, method = "pcr", trControl = tc))
+
+set.seed(55)
+wines_pcr_reg_pred <- predict(wines_pcr_reg, test_white)
+pcr_rmse_test <- sqrt(mean((wines_pcr_reg_pred - test_white$quality)^2))
+cat("RMSE of the model on test data: ", pcr_rmse_test, "\n")
+
+# pls
+set.seed(55)
+(wines_pls_reg <- train(quality ~ ., data = train_white, method = "pls", trControl = tc))
+
+set.seed(55)
+wines_pls_reg_pred <- predict(wines_pls_reg, test_white)
+pls_rmse_test <- sqrt(mean((wines_pls_reg_pred - test_white$quality)^2))
+cat("RMSE of the model on test data: ", pls_rmse_test, "\n")
+
+# Lasso
+set.seed(55)
+(wines_lasso_reg <- train(quality ~ ., data = train_white, method = "glmnet", trControl = tc))
+
+set.seed(55)
+wines_lasso_reg_pred <- predict(wines_lasso_reg, test_white)
+lasso_rmse_test <- sqrt(mean((wines_lasso_reg_pred - test_white$quality)^2))
+cat("RMSE of the model on test data: ", lasso_rmse_test, "\n")
+
+# Q: Which model performs best?
+# A: The best mode is:
+switch(which.min(c(rt_rmse_test, rf_rmse_test, lm_rmse_test, pcr_rmse_test, pls_rmse_test, lasso_rmse_test)),
+       "rt" = "Regression Tree",
+       "rf" = "Random Forest",
+       "lm" = "Linear Regression",
+       "pcr" = "PCR",
+       "pls" = "PLS",
+       "lasso" = "Lasso")
 
