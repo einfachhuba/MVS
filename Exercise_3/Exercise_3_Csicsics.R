@@ -354,6 +354,7 @@ cat("The model that performed the best is the", switch(which.min(c(rt_rmse_test,
 
 # set the quality to a factor
 train_white$quality <- as.factor(train_white$quality)
+test_white$quality <- as.factor(test_white$quality)
 
 set.seed(55)
 (wines_tree_class <- train(quality ~ ., data = train_white, method = "rpart", trControl = tc, tuneGrid = rt_tG))
@@ -394,3 +395,12 @@ cat("RMSE of the regression tree: ", reg_tree_rmse_test, "\n")
 
 reg_forest_rmse_test <- sqrt(mean((wines_forest_reg_pred - test_white$quality)^2))
 cat("RMSE of the regression forest: ", reg_forest_rmse_test, "\n")
+
+
+# Q: Which model performs best?
+# A: The best mode is:
+cat("The model that performed the best is the", switch(which.min(c(class_tree_rmse_test, class_forest_rmse_test, reg_tree_rmse_test, reg_forest_rmse_test)),
+       "class_tree" = "Classification Tree",
+       "class_forest" = "Classification Forest",
+       "reg_tree" = "Regression Tree",
+       "reg_forest" = "Regression Forest")[1], "\n")
