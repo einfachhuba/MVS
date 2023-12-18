@@ -132,8 +132,7 @@ if (length(opt_cp_1se) > 1) {
 (opt_cp_1se)
 # create the tree with the opt_cp_1se
 set.seed(55)
-wines_tree_1se <- rpart(type ~ . - quality, data = rbind(train, test), method = "class",
-                        control = rpart.control(minsplit = 2, cp = opt_cp_1se, minbucket = 1))
+wines_tree_1se <- prune(wines_tree, cp = opt_cp_1se)
 
 # plot the tree
 fancyRpartPlot(wines_tree_1se, sub = "")
@@ -236,7 +235,6 @@ for (mtry in mtry_vec) {
 
 ### Task 3.6
 
-# print only the MeanDecreaseGini of the variable importance
 (forest_importance <- wines_forest$importance[order(wines_forest$importance[, 4], decreasing = TRUE), 4])
 
 # plot the variable importance in a barplot
@@ -268,6 +266,9 @@ table(test_white$quality)
 train_white$quality <- as.numeric(train_white$quality)
 
 colnames(train_white)
+
+is.factor(train_white$quality)
+is.factor(test_white$quality)
 
 ### Task 4.2
 # regression tree
